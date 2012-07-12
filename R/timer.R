@@ -45,9 +45,27 @@ TimerCallbacks <- setRefClass(
     },
     executeElapsed = function() {
       elapsed <- takeElapsed()
-      
+      for (id in elapsed$id) {
+        thisFunc <- .funcs$remove(id)
+        # TODO: Catch exception, and...?
+        # TODO: Detect NULL, and...?
+        thisFunc()
+      }
     }
   )
 )
 
 timerCallbacks <- TimerCallbacks$new()
+
+timerCallbacks$schedule(1000, function() {print('a')})
+timerCallbacks$schedule(2000, function() {print('b')})
+timerCallbacks$schedule(3000, function() {print('c')})
+timerCallbacks$schedule(3000, function() {print('d')})
+timerCallbacks$schedule(4000, function() {print('e')})
+timerCallbacks$schedule(6000, function() {print('f')})
+timerCallbacks$schedule(1000, function() {print('g')})
+timerCallbacks$schedule(10000, function() {print('h')})
+while (T) {
+  Sys.sleep(max(0, timerCallbacks$timeToNextEvent()))
+  timerCallbacks$executeElapsed()
+}
