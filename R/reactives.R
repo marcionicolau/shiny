@@ -177,6 +177,23 @@ reactive.default <- function(x) {
   stop("Don't know how to make this object reactive!")
 }
 
+`%<-exec%` <- function(lvalue, rvalue) {
+  name <- deparse(substitute(lvalue))
+  env <- new.env()
+  assign('rvalue', substitute(eval(quote(rvalue))), pos=env)
+  
+  browser()
+  innerFun <- eval.parent(substitute(function() {rvalue}, env))
+  parentEnv <- parent.frame()
+  
+  fun <- function(...) {
+    do.call(innerFun, list(), envir=parentEnv)
+  }
+  
+  makeActiveBinding(name, fun, parent.frame())
+  invisible()
+}
+
 Observer <- setRefClass(
   'Observer',
   fields = list(
