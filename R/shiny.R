@@ -480,7 +480,23 @@ startApp <- function(port=8101L) {
       },
       update = {
         shinyapp$session$mset(msg$data)
-      })
+      },
+      uploadInit = {
+        shinyapp$sendResponse(msg, 1)
+      },
+      uploadFileBegin = {
+        shinyapp$sendResponse(msg, NULL)
+      },
+      uploadFileChunk = {
+        shinyapp$sendResponse(msg, NULL)
+      },
+      uploadFileEnd = {
+        shinyapp$sendResponse(msg, NULL)
+      },
+      uploadEnd = {
+        shinyapp$sendResponse(msg, NULL)
+      }
+    )
     flushReact()
     shinyapp$flushOutput()
   }, ws_env)
