@@ -423,7 +423,7 @@
           var buffer = new ArrayBuffer(4);
           var view = new DataView(buffer);
           view.setUint32(0, val, true); // little-endian
-          return buffer;
+          return new Uint8Array(buffer);
         }
 
         var payload = [];
@@ -656,7 +656,8 @@
       var offset = this.pos;
       var data = this.fileReader.result;
       this.pos = this.pos + this.chunkSize;
-      this.onFileChunk(file, offset, data, this.$getRun());
+      this.onFileChunk(file, offset, new Blob([new Uint8Array(data)]),
+                       this.$getRun());
     }
   });
 
@@ -713,7 +714,7 @@
     };
 
     this.onValueChange = function(el, data) {
-      this.clearError();
+      this.clearError(el);
       this.renderValue(el, data);
     };
     this.onValueError = function(el, err) {
@@ -969,6 +970,7 @@
 
   var FileUploader = function(shinyapp, id, files) {
     this.shinyapp = shinyapp;
+    this.id = id;
     FileProcessor.call(this, files);
   };
   $.extend(FileUploader.prototype, FileProcessor.prototype, {
@@ -998,7 +1000,7 @@
         });
     },
     onFileChunk: function(file, offset, blob, cont) {
-      this.onProgress(file, (offset + blob.byteLength) / file.size);
+      this.onProgress(file, (offset + blob.size) / file.size);
 
       this.makeRequest(
         'uploadFileChunk', [this.jobId],
@@ -1020,7 +1022,7 @@
     },
     onComplete: function() {
       this.makeRequest(
-        'uploadEnd', [this.jobId], 
+        'uploadEnd', [this.jobId, this.id], 
         function(response) {
         },
         function(error) {

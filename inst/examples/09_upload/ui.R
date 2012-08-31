@@ -5,5 +5,7 @@ shinyUI(pageWithSidebar(
   sidebarPanel(
     tags$input(id='file1', type='file')
   ),
-  mainPanel()
+  mainPanel(
+    verbatimTextOutput('contents')
+  )
 ))
