@@ -17,6 +17,9 @@ shinyUI(pageWithSidebar(
     checkboxInput("outliers", "Show outliers", FALSE)
   ),
 
-  mainPanel()
+  mainPanel(
+    h3(textOutput("caption")),
+    plotOutput("mpgPlot")
+  )
 
 ))
