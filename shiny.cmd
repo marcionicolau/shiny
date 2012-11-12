@@ -1,1 +1,1 @@
-@R --slave --args %1 < run.R
+R --slave --args %1 < run.R
