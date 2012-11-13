@@ -16,6 +16,12 @@ shinyUI(pageWithSidebar(
     textInput("dbuser", "Username:"),
     passwordInput("dbpass", "Password:"),
 
+    conditionalPanel(
+      condition = "output.isValidInfo == true",
+      checkboxInput("listTables", "List Tables?")
+#       uiOutput("dblistTablesControls")
+    ),
+    
     submitButton("Update View"),
     
 #    checkboxInput("listTables", "List Tables?"),

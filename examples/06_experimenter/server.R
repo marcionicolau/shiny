@@ -25,6 +25,15 @@ shinyServer(function(input, output) {
     input$dbtable
   })
   
+  output$isValidInfo <- reactive(function() {
+    u <- input$dbuser
+    p <- input$dbpass
+    tryCatch(con <- dbConnect(PostgreSQL(), user=user, dbname=user, password=pwd, host="localhost"),  
+             error = function(e) e)
+#     (length(RPostgreSQL::dbListConnections(dbDriver("PostgreSQL"))) > 0) & RPostgreSQL::isPostgresqlIdCurrent(con)
+    RPostgreSQL::isPostgresqlIdCurrent(con)
+  })
+  
   isActiveConn <- reactive(function() {
     dpg <- dbDriver("PostgreSQL")
     ifelse(dbListConnections(dpg) > 0, TRUE, FALSE)
@@ -59,7 +68,7 @@ shinyServer(function(input, output) {
   output$contents <- reactiveUI(function() {
     u <- input$dbuser
     p <- input$dbpass
-    sprintf("Connected to Database [ %s ] with credentials [ user=%s, passwd=%s ]", u, u, p) 
+    sprintf("Requesting Database [ %s ] with credentials [ user=%s, passwd=%s ]", u, u, p)
   })
  
 
