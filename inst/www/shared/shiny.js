@@ -1001,7 +1001,7 @@
       };
     }
   });
-  inputBindings.register(textInputBinding, 'shiny.passwordInput');
+  inputBindings.register(passwordInputBinding, 'shiny.passwordInput');
 
 
   var textareaInputBinding = {};
