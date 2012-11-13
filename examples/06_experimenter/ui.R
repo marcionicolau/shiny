@@ -13,8 +13,8 @@ shinyUI(pageWithSidebar(
   # Sidebar with controls to select the variable to plot against mpg
   # and to specify whether outliers should be included
   sidebarPanel(
-    textInput("dbuser", "Username:", Sys.getenv("USER")),
-    textInput("dbpass", "Password:"),
+    textInput("dbuser", "Username:"),
+    passwordInput("dbpass", "Password:"),
 
     submitButton("Update View"),
     
