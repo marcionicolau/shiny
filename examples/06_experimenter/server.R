@@ -58,7 +58,8 @@ shinyServer(function(input, output) {
 
   output$contents <- reactiveUI(function() {
     u <- input$dbuser
-    sprintf("Connected to Database [ %s ] with credentials [ user=%s ]", u, u) 
+    p <- input$dbpass
+    sprintf("Connected to Database [ %s ] with credentials [ user=%s, passwd=%s ]", u, u, p) 
   })
  
 

@@ -1,5 +1,9 @@
 library(shiny)
 
+passwordInput <- function(inputId, label) {
+  tagList(tags$label(label), tags$input(id = inputId, type = "password", value = ""))
+}
+
 #Define UI for anova
 shinyUI(pageWithSidebar(
 
@@ -10,7 +14,7 @@ shinyUI(pageWithSidebar(
   # and to specify whether outliers should be included
   sidebarPanel(
     textInput("dbuser", "Username:", Sys.getenv("USER")),
-    textInput("dbpass", "Password:", NA),
+    textInput("dbpass", "Password:"),
 
     submitButton("Update View"),
     
