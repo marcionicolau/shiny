@@ -5,46 +5,60 @@ library(RPostgreSQL)
 shinyServer(function(input, output) {
 
   output$dblistTablesControls <- reactiveUI(function() {
-    tbls <- dbListTables(datasetInput())
-    selectInput("dbtable", "Select table:", tbls)
+    if (isActiveDB()) {
+      con <- datasetInput()
+      tbls <- dbListTables(con)
+      selectInput("dbtable", "Select table:", tbls)
+#       dbDisconnect(con)
+    }
   })
 
   datasetInput <- reactive(function() {
     user <- input$dbuser
     pwd <- input$dbpass
-
-    con <- dbConnect(PostgreSQL(), user=user, dbname=user, password=pwd, host="localhost")
+    tryCatch(con <- dbConnect(PostgreSQL(), user=user, dbname=user, password=pwd, host="localhost"),  
+             error = function(e) e)
     con
   })
 
   activeTable <- reactiveUI(function() {
     input$dbtable
   })
+  
+  isActiveConn <- reactive(function() {
+    dpg <- dbDriver("PostgreSQL")
+    ifelse(dbListConnections(dpg) > 0, TRUE, FALSE)
+  })
 
   isActiveDB <- reactive(function() {
-    RPostgreSQL::isPostgresqlIdCurrent(datasetInput())
+    con <- datasetInput()
+    RPostgreSQL::isPostgresqlIdCurrent(con)
+#     dbDisconnect(con)
   })
   
     # Generate a summary of the dataset
   output$summary <- reactivePrint(function() {
     if(length(activeTable())> 0) {
-      dataset <- dbReadTable(conn=datasetInput(), name=activeTable())
+      con <- datasetInput()
+      dataset <- dbReadTable(conn=con, name=activeTable())
       summary(dataset)
     }
+#     dbDisconnect(con)
   })
   
   # Show the first "n" observations
   output$view <- reactiveTable(function() {
     if(length(activeTable()) > 0) {
-      head(dbReadTable(conn=datasetInput(), name=activeTable()))
+      con <- datasetInput()
+      dbReadTable(conn=con, name=activeTable())
     }
+#     dbDisconnect(con)
   })
 
 
-  output$contents <- reactive(function() {
+  output$contents <- reactiveUI(function() {
     u <- input$dbuser
-    p <- input$dbpass
-    sprintf("Connecting to DB[%s] with credentials [user=%s,password=%s]", u, u, p) 
+    sprintf("Connected to Database [ %s ] with credentials [ user=%s ]", u, u) 
   })
  
 

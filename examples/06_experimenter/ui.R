@@ -26,7 +26,8 @@ shinyUI(pageWithSidebar(
  mainPanel(
     tabsetPanel(
       tabPanel("Summary", verbatimTextOutput("summary")), 
-      tabPanel("Table", tableOutput("view"))
+      tabPanel("Table", tableOutput("view")),
+      tabPanel("Connection", textOutput("contents"))
     )
   )
 
