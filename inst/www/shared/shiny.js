@@ -350,12 +350,12 @@
     }
 
     // Don't mutate list argument
-    list = slice(list, 0);
+    list = list.slice(0);
 
     for (var chunkSize = 1; chunkSize < list.length; chunkSize *= 2) {
       for (var i = 0; i < list.length; i += chunkSize * 2) {
-        var listA = slice(list, i, i + chunkSize);
-        var listB = slice(list, i + chunkSize, i + chunkSize * 2);
+        var listA = list.slice(i, i + chunkSize);
+        var listB = list.slice(i + chunkSize, i + chunkSize * 2);
         var merged = merge(sortfunc, listA, listB);
         var args = [i, merged.length];
         Array.prototype.push.apply(args, merged);
@@ -393,6 +393,11 @@
     this.connect = function(initialInput) {
       if (this.$socket)
         throw "Connect was already called on this application object";
+
+      $.extend(initialInput, {
+        // IE8 and IE9 have some limitations with data URIs
+        "__allowDataUriScheme": typeof WebSocket !== 'undefined'
+      });
 
       this.$socket = this.createSocket();
       this.$initialInput = initialInput;
@@ -563,6 +568,7 @@
         exports.oncustommessage(msgObj.custom);
       }
       if (msgObj.values) {
+        $(document.documentElement).removeClass('shiny-busy');
         for (name in this.$bindings)
           this.$bindings[name].showProgress(false);
       }
@@ -578,6 +584,7 @@
         }
       }
       if (msgObj.progress) {
+        $(document.documentElement).addClass('shiny-busy');
         for (var i = 0; i < msgObj.progress.length; i++) {
           var key = msgObj.progress[i];
           var binding = this.$bindings[key];
@@ -905,6 +912,17 @@
     }
   });
   outputBindings.register(htmlOutputBinding, 'shiny.htmlOutput');
+  
+  var downloadLinkOutputBinding = new OutputBinding();
+  $.extend(downloadLinkOutputBinding, {
+    find: function(scope) {
+      return $(scope).find('a.shiny-download-link');
+    },
+    renderValue: function(el, data) {
+      $(el).attr('href', data);
+    }
+  })
+  outputBindings.register(downloadLinkOutputBinding, 'shiny.downloadLink');
 
 
   var InputBinding = exports.InputBinding = function() {
@@ -967,41 +985,6 @@
     }
   });
   inputBindings.register(textInputBinding, 'shiny.textInput');
-  
-    // Password input
-  var passwordInputBinding = new InputBinding();
-  $.extend(passwordInputBinding, {
-    find: function(scope) {
-      return $(scope).find('input[type="password"]');
-    },
-    getId: function(el) {
-      return InputBinding.prototype.getId.call(this, el) || el.name;
-    },
-    getValue: function(el) {
-      return el.value;
-    },
-    setValue: function(el, value) {
-      el.value = value;
-    },
-    subscribe: function(el, callback) {
-      $(el).on('keyup.passwordInputBinding input.passwordInputBinding', function(event) {
-        callback(true);
-      });
-      $(el).on('change.passwordInputBinding', function(event) {
-        callback(false);
-      });
-    },
-    unsubscribe: function(el) {
-      $(el).off('.passwordInputBinding');
-    },
-    getRatePolicy: function() {
-      return {
-        policy: 'debounce',
-        delay: 250
-      };
-    }
-  });
-  inputBindings.register(passwordInputBinding, 'shiny.passwordInput');
 
 
   var textareaInputBinding = {};
@@ -1579,3 +1562,4 @@
   });
 
 })();
+>>>>>>> upstream/master

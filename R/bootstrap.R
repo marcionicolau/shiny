@@ -26,6 +26,12 @@ bootstrapPage <- function(...) {
     result <- tags$head(
       tags$link(rel="stylesheet", 
                 type="text/css", 
+                href="shared/slider/css/jquery.slider.min.css"),
+      
+      tags$script(src="shared/slider/js/jquery.slider.min.js"),
+      
+      tags$link(rel="stylesheet", 
+                type="text/css", 
                 href=paste(bs, "css/bootstrap", cssExt, sep="")),
       
       tags$script(src=paste(bs, "js/bootstrap", jsExt, sep=""))
@@ -109,14 +115,16 @@ pageWithSidebar <- function(headerPanel, sidebarPanel, mainPanel) {
 #' Create a header panel containing an application title.
 #' 
 #' @param title An application title to display
+#' @param windowTitle The title that should be displayed by the browser window. 
+#'   Useful if \code{title} is not a string.
 #' @return A headerPanel that can be passed to \link{pageWithSidebar}
-#' 
+#'   
 #' @examples
 #' headerPanel("Hello Shiny!")
 #' @export
-headerPanel <- function(title) {    
+headerPanel <- function(title, windowTitle=title) {    
   tagList(
-    tags$head(tags$title(title)),
+    tags$head(tags$title(windowTitle)),
     div(class="span12", style="padding: 10px 0px;",
       h1(title)
     )
@@ -365,7 +373,7 @@ checkboxGroupInput <- function(inputId, label, choices, selected = NULL) {
                            value = choices[[choiceName]])
     
     if (choiceName %in% selected)
-      checkbox$attribs$selected <- 'selected'
+      checkbox$attribs$checked <- 'checked'
     
     checkboxes[[length(checkboxes)+1]] <- checkbox
     checkboxes[[length(checkboxes)+1]] <- choiceName
@@ -784,4 +792,53 @@ htmlOutput <- function(outputId) {
 #' @export
 uiOutput <- function(outputId) {
   htmlOutput(outputId)
+}
+
+#' Create a download button or link
+#' 
+#' Use these functions to create a download button or link; when clicked, it 
+#' will initiate a browser download. The filename and contents are specified by 
+#' the corresponding \code{\link{downloadHandler}} defined in the server 
+#' function.
+#' 
+#' @param outputId The name of the output slot that the \code{downloadHandler}
+#'   is assigned to.
+#' @param label The label that should appear on the button.
+#' @param class Additional CSS classes to apply to the tag, if any.
+#'   
+#' @examples
+#' \dontrun{
+#' # In server.R:
+#' output$downloadData <- downloadHandler(
+#'   filename = function() {
+#'     paste('data-', Sys.Date(), '.csv', sep='')
+#'   },
+#'   content = function(con) {
+#'     write.csv(data, con)
+#'   }
+#' )
+#' 
+#' # In ui.R:
+#' downloadLink('downloadData', 'Download')
+#' }
+#' 
+#' @aliases downloadLink
+#' @seealso downloadHandler
+#' @export
+downloadButton <- function(outputId, label="Download", class=NULL) {
+  tags$a(id=outputId,
+         class=paste(c('btn shiny-download-link', class), collapse=" "),
+         href='',
+         target='_blank',
+         label)
+}
+
+#' @rdname downloadButton
+#' @export
+downloadLink <- function(outputId, label="Download", class=NULL) {
+  tags$a(id=outputId,
+         class=paste(c('shiny-download-link', class), collapse=" "),
+         href='',
+         target='_blank',
+         label)
 }

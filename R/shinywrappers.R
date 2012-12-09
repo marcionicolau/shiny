@@ -10,12 +10,24 @@ suppressPackageStartupMessages({
 #' 
 #' The corresponding HTML output tag should be \code{div} or \code{img} and have
 #' the CSS class name \code{shiny-plot-output}.
+#'
+#' For output, it will try to use the following devices, in this order:
+#' quartz (via \code{\link[grDevices]{png}}), then \code{\link[Cairo]{CairoPNG}},
+#' and finally \code{\link[grDevices]{png}}. This is in order of quality of
+#' output. Notably, plain \code{png} output on Linux and Windows may not
+#' antialias some point shapes, resulting in poor quality output.
 #' 
 #' @param func A function that generates a plot.
-#' @param width The width of the rendered plot, in pixels; or \code{'auto'} to use
-#'   the \code{offsetWidth} of the HTML element that is bound to this plot.
-#' @param height The height of the rendered plot, in pixels; or \code{'auto'} to use
-#'   the \code{offsetHeight} of the HTML element that is bound to this plot.
+#' @param width The width of the rendered plot, in pixels; or \code{'auto'} to 
+#'   use the \code{offsetWidth} of the HTML element that is bound to this plot. 
+#'   You can also pass in a function that returns the width in pixels or 
+#'   \code{'auto'}; in the body of the function you may reference reactive 
+#'   values and functions.
+#' @param height The height of the rendered plot, in pixels; or \code{'auto'} to
+#'   use the \code{offsetHeight} of the HTML element that is bound to this plot.
+#'   You can also pass in a function that returns the width in pixels or 
+#'   \code{'auto'}; in the body of the function you may reference reactive 
+#'   values and functions.
 #' @param ... Arguments to be passed through to \code{\link[grDevices]{png}}. 
 #'   These can be used to set the width, height, background color, etc.
 #'   
@@ -23,8 +35,18 @@ suppressPackageStartupMessages({
 reactivePlot <- function(func, width='auto', height='auto', ...) {
   args <- list(...)
   
+  if (is.function(width))
+    width <- reactive(width)
+  if (is.function(height))
+    height <- reactive(height)
+
   return(function(shinyapp, name, ...) {
     png.file <- tempfile(fileext='.png')
+    
+    if (is.function(width))
+      width <- width()
+    if (is.function(height))
+      height <- height()
     
     # Note that these are reactive calls. A change to the width and height
     # will inherently cause a reactive plot to redraw (unless width and 
@@ -37,8 +59,19 @@ reactivePlot <- function(func, width='auto', height='auto', ...) {
     
     if (width <= 0 || height <= 0)
       return(NULL)
-    
-    do.call(png, c(args, filename=png.file, width=width, height=height))
+
+    # If quartz is available, use png() (which will default to quartz).
+    # Otherwise, if the Cairo package is installed, use CairoPNG().
+    # Finally, if neither quartz nor Cairo, use png().
+    if (capabilities("aqua"))
+      pngfun <- png
+    else if (nchar(system.file(package = "Cairo")))
+      pngfun <- Cairo::CairoPNG
+    else
+      pngfun <- png
+
+    do.call(pngfun, c(args, filename=png.file, width=width, height=height))
+    on.exit(unlink(png.file))
     tryCatch(
       func(),
       finally=dev.off())
@@ -47,8 +80,15 @@ reactivePlot <- function(func, width='auto', height='auto', ...) {
     if (is.na(bytes))
       return(NULL)
     
-    b64 <- base64encode(readBin(png.file, 'raw', n=bytes))
-    return(paste("data:image/png;base64,", b64, sep=''))
+    pngData <- readBin(png.file, 'raw', n=bytes)
+    if (shinyapp$allowDataUriScheme) {
+      b64 <- base64encode(pngData)
+      return(paste("data:image/png;base64,", b64, sep=''))
+    }
+    else {
+      imageUrl <- shinyapp$savePlot(name, pngData, 'image/png')
+      return(imageUrl)
+    }
   })
 }
 
@@ -62,7 +102,8 @@ reactivePlot <- function(func, width='auto', height='auto', ...) {
 #' 
 #' @param func A function that returns an R object that can be used with 
 #'   \code{\link[xtable]{xtable}}.
-#' @param ... Arguments to be passed through to \code{\link[xtable]{xtable}}.
+#' @param ... Arguments to be passed through to \code{\link[xtable]{xtable}} and
+#'   \code{\link[xtable]{print.xtable}}.
 #'   
 #' @export
 reactiveTable <- function(func, ...) {
@@ -80,7 +121,7 @@ reactiveTable <- function(func, ...) {
               html.table.attributes=paste('class="',
                                           htmlEscape(classNames, TRUE),
                                           '"',
-                                          sep=''))),
+                                          sep=''), ...)),
       collapse="\n"))
   })
 }
@@ -157,6 +198,54 @@ reactiveUI <- function(func) {
     result <- func()
     if (is.null(result) || length(result) == 0)
       return(NULL)
-    return(as.character(result))
+    # Wrap result in tagList in case it is an ordinary list
+    return(as.character(tagList(result)))
+  })
+}
+
+#' File Downloads
+#' 
+#' Allows content from the Shiny application to be made available to the user as
+#' file downloads (for example, downloading the currently visible data as a CSV 
+#' file). Both filename and contents can be calculated dynamically at the time 
+#' the user initiates the download. Assign the return value to a slot on 
+#' \code{output} in your server function, and in the UI use 
+#' \code{\link{downloadButton}} or \code{\link{downloadLink}} to make the
+#' download available.
+#' 
+#' @param filename A string of the filename, including extension, that the 
+#'   user's web browser should default to when downloading the file; or a 
+#'   function that returns such a string. (Reactive values and functions may be 
+#'   used from this function.)
+#' @param content A function that takes a single argument \code{file} that is a 
+#'   file path (string) of a nonexistent temp file, and writes the content to
+#'   that file path. (Reactive values and functions may be used from this
+#'   function.)
+#' @param contentType A string of the download's 
+#'   \href{http://en.wikipedia.org/wiki/Internet_media_type}{content type}, for 
+#'   example \code{"text/csv"} or \code{"image/png"}. If \code{NULL} or 
+#'   \code{NA}, the content type will be guessed based on the filename 
+#'   extension, or \code{application/octet-stream} if the extension is unknown.
+#'   
+#' @examples
+#' \dontrun{
+#' # In server.R:
+#' output$downloadData <- downloadHandler(
+#'   filename = function() {
+#'     paste('data-', Sys.Date(), '.csv', sep='')
+#'   },
+#'   content = function(file) {
+#'     write.csv(data, file)
+#'   }
+#' )
+#' 
+#' # In ui.R:
+#' downloadLink('downloadData', 'Download')
+#' }
+#' 
+#' @export
+downloadHandler <- function(filename, content, contentType=NA) {
+  return(function(shinyapp, name, ...) {
+    shinyapp$registerDownload(name, filename, contentType, content)
   })
 }

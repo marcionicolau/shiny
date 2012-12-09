@@ -1,3 +1,69 @@
+shiny 0.2.3
+--------------------------------------------------------------------------------
+
+* Ignore request variables for routing purposes
+
+
+shiny 0.2.2
+--------------------------------------------------------------------------------
+
+* Fix CRAN warning (assigning to global environment)
+
+
+shiny 0.2.1
+--------------------------------------------------------------------------------
+
+* [BREAKING] Modify API of `downloadHandler`: The `content` function now takes
+  a file path, not writable connection, as an argument. This makes it much
+  easier to work with APIs that only write to file paths, not connections.
+
+
+shiny 0.2.0
+--------------------------------------------------------------------------------
+
+* Fix subtle name resolution bug--the usual symptom being S4 methods not being
+  invoked correctly when called from inside of ui.R or server.R
+
+
+shiny 0.1.14
+--------------------------------------------------------------------------------
+
+* Fix slider animator, which broke in 0.1.10
+
+
+shiny 0.1.13
+--------------------------------------------------------------------------------
+
+* Fix temp file leak in reactivePlot
+
+
+shiny 0.1.12
+--------------------------------------------------------------------------------
+
+* Fix problems with runGist on Windows
+* Add feature for on-the-fly file downloads (e.g. CSV data, PDFs)
+* Add CSS hooks for app-wide busy indicators
+
+
+shiny 0.1.11
+--------------------------------------------------------------------------------
+
+* Fix input binding with IE8 on Shiny Server
+* Fix issue #41: reactiveTable should allow print options too
+* Allow dynamic sizing of reactivePlot (i.e. using a function instead of a fixed
+  value)
+
+
+shiny 0.1.10
+--------------------------------------------------------------------------------
+
+* Support more MIME types when serving out of www
+* Fix issue #35: Allow modification of untar args
+* headerPanel can take an explicit window title parameter
+* checkboxInput uses correct attribute `checked` instead of `selected`
+* Fix plot rendering with IE8 on Shiny Server
+
+
 shiny 0.1.9
 --------------------------------------------------------------------------------
 
