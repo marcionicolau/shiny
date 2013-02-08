@@ -20,7 +20,7 @@ ShinyApp <- setRefClass(
     .invalidatedOutputErrors = 'Map',
     .progressKeys = 'character',
     .fileUploadContext = 'FileUploadContext',
-    session = 'Values',
+    session = 'ReactiveValues',
     token = 'character',  # Used to identify this instance in URLs
     plots = 'Map',
     downloads = 'Map',
@@ -34,13 +34,13 @@ ShinyApp <- setRefClass(
       .progressKeys <<- character(0)
       # TODO: Put file upload context in user/app-specific dir if possible
       .fileUploadContext <<- FileUploadContext$new()
-      session <<- Values$new()
+      session <<- ReactiveValues$new()
       
       token <<- createUniqueId(16)
       
       allowDataUriScheme <<- TRUE
     },
-    defineOutput = function(name, func) {
+    defineOutput = function(name, func, label) {
       "Binds an output generating function to this name. The function can either
       take no parameters, or have named parameters for \\code{name} and
       \\code{shinyapp} (in the future this list may expand, so it is a good idea
@@ -74,9 +74,9 @@ ShinyApp <- setRefClass(
           }
           else
             .invalidatedOutputValues$set(name, value)
-        })
+        }, label)
         
-        obs$onInvalidateHint(function() {
+        obs$onInvalidate(function() {
           showProgress(name)
         })
       }
@@ -147,7 +147,8 @@ ShinyApp <- setRefClass(
     },
     .write = function(json) {
       if (getOption('shiny.trace', FALSE))
-        message('SEND ', json)
+        message('SEND ', 
+           gsub('(?m)base64,[a-zA-Z0-9+/=]+','[base64 data]',json,perl=TRUE))
       if (getOption('shiny.transcode.json', TRUE))
         json <- iconv(json, to='UTF-8')
       websocket_write(json, .websocket)
@@ -228,7 +229,7 @@ ShinyApp <- setRefClass(
           return(httpResponse(404, 'text/html', '<h1>Not Found</h1>'))
         
         filename <- ifelse(is.function(download$filename),
-                           Context$new()$run(download$filename),
+                           Context$new('[download]')$run(download$filename),
                            download$filename)
 
         # If the URL does not contain the filename, and the desired filename
@@ -245,7 +246,7 @@ ShinyApp <- setRefClass(
         
         tmpdata <- tempfile()
         on.exit(unlink(tmpdata))
-        result <- try(Context$new()$run(function() { download$func(tmpdata) }))
+        result <- try(Context$new('[download]')$run(function() { download$func(tmpdata) }))
         if (is(result, 'try-error')) {
           return(httpResponse(500, 'text/plain', 
                               attr(result, 'condition')$message))
@@ -287,15 +288,34 @@ ShinyApp <- setRefClass(
 )
 
 .createOutputWriter <- function(shinyapp) {
-  ow <- list(impl=shinyapp)
-  class(ow) <- 'shinyoutput'
-  return(ow)
+  structure(list(impl=shinyapp), class='shinyoutput')
 }
 
 #' @S3method $<- shinyoutput
 `$<-.shinyoutput` <- function(x, name, value) {
-  x[['impl']]$defineOutput(name, value)
+  .subset2(x, 'impl')$defineOutput(name, value, deparse(substitute(value)))
   return(invisible(x))
+}
+
+#' @S3method [[<- shinyoutput
+`[[<-.shinyoutput` <- `$<-.shinyoutput`
+
+#' @S3method $ shinyoutput
+`$.shinyoutput` <- function(x, name) {
+  stop("Reading objects from shinyoutput object not allowed.")
+}
+
+#' @S3method [[ shinyoutput
+`[[.shinyoutput` <- `$.shinyoutput`
+
+#' @S3method [ shinyoutput
+`[.shinyoutput` <- function(values, name) {
+  stop("Single-bracket indexing of shinyoutput object is not allowed.")
+}
+
+#' @S3method [<- shinyoutput
+`[<-.shinyoutput` <- function(values, name, value) {
+  stop("Single-bracket indexing of shinyoutput object is not allowed.")
 }
 
 resolve <- function(dir, relpath) {
@@ -316,7 +336,11 @@ resolve <- function(dir, relpath) {
 httpResponse <- function(status = 200,
                          content_type = "text/html; charset=UTF-8", 
                          content = "",
-                         headers = c()) {
+                         headers = list()) {
+  # Make sure it's a list, not a vector
+  headers <- as.list(headers)
+  if (is.null(headers$`X-UA-Compatible`))
+    headers$`X-UA-Compatible` <- "chrome=1"
   resp <- list(status = status, content_type = content_type, content = content,
                headers = headers)
   class(resp) <- 'httpResponse'
@@ -729,8 +753,16 @@ startApp <- function(port=8101L) {
             stop('Unknown type specified for ', name)
           )
         }
-        else if (is.list(val) && is.null(names(val)))
-          msg$data[[name]] <- unlist(val, recursive=FALSE)
+        else if (is.list(val) && is.null(names(val))) {
+          val_flat <- unlist(val, recursive = TRUE)
+
+          if (is.null(val_flat)) {
+            # This is to assign NULL instead of deleting the item
+            msg$data[name] <- list(NULL)
+          } else {
+            msg$data[[name]] <- val_flat
+          }
+        }
       }
     }
     
@@ -756,7 +788,7 @@ startApp <- function(port=8101L) {
         shinyapp$session$mset(msg$data)
         flushReact()
         local({
-          serverFunc(input=.createValuesReader(shinyapp$session),
+          serverFunc(input=.createReactiveValues(shinyapp$session, readonly=TRUE),
                      output=.createOutputWriter(shinyapp))
         })
       },
@@ -766,7 +798,10 @@ startApp <- function(port=8101L) {
       shinyapp$dispatch(msg)
     )
     flushReact()
-    shinyapp$flushOutput()
+    lapply(apps$values(), function(shinyapp) {
+      shinyapp$flushOutput()
+      NULL
+    })
   }, ws_env)
   
   message('\n', 'Listening on port ', port)
@@ -822,7 +857,7 @@ runApp <- function(appDir=getwd(),
   
   orig.wd <- getwd()
   setwd(appDir)
-  on.exit(setwd(orig.wd))
+  on.exit(setwd(orig.wd), add = TRUE)
   
   require(shiny)
   
@@ -887,8 +922,8 @@ runExample <- function(example=NA,
 # The only difference is that, if the protocol is https, it changes the
 # download settings, depending on platform.
 download <- function(url, ...) {
-  # First, check protocol. If https, check platform:
-  if (grepl('^https://', url)) {
+  # First, check protocol. If http or https, check platform:
+  if (grepl('^https?://', url)) {
     
     # If Windows, call setInternet2, then use download.file with defaults.
     if (.Platform$OS.type == "windows") {
@@ -930,54 +965,4 @@ download <- function(url, ...) {
   } else {
     download.file(url, ...)
   }
-}
-
-#' Run a Shiny application from https://gist.github.com
-#' 
-#' Download and launch a Shiny application that is hosted on GitHub as a gist.
-#' 
-#' @param gist The identifier of the gist. For example, if the gist is
-#'   https://gist.github.com/3239667, then \code{3239667}, \code{'3239667'}, and
-#'   \code{'https://gist.github.com/3239667'} are all valid values.
-#' @param port The TCP port that the application should listen on. Defaults to 
-#'   port 8100.
-#' @param launch.browser If true, the system's default web browser will be 
-#'   launched automatically after the app is started. Defaults to true in 
-#'   interactive sessions only.
-#'   
-#' @export
-runGist <- function(gist,
-                    port=8100L,
-                    launch.browser=getOption('shiny.launch.browser',
-                                             interactive())) {
-
-  gistUrl <- if (is.numeric(gist) || grepl('^[0-9a-f]+$', gist)) {
-    sprintf('https://gist.github.com/gists/%s/download', gist)
-  } else if(grepl('^https://gist.github.com/([0-9a-f]+)$', gist)) {
-    paste(sub('https://gist.github.com/',
-              'https://gist.github.com/gists/',
-              gist),
-          '/download',
-          sep='')
-  } else {
-    stop('Unrecognized gist identifier format')
-  }
-  filePath <- tempfile('shinygist', fileext='.tar.gz')
-  if (download(gistUrl, filePath, mode = "wb", quiet = TRUE) != 0)
-    stop("Failed to download URL ", gistUrl)
-  on.exit(unlink(filePath))
-
-  # Regular untar commonly causes two problems on Windows with github tarballs:
-  #   1) If RTools' tar.exe is in the path, you get cygwin path warnings which
-  #      throw list=TRUE off;
-  #   2) If the internal untar implementation is used, it chokes on the 'g'
-  #      type flag that github uses (to stash their commit hash info).
-  # By using our own forked/modified untar2 we sidestep both issues.
-  dirname <- untar2(filePath, list=TRUE)[1]
-  untar2(filePath, exdir = dirname(filePath))
-  
-  appdir <- file.path(dirname(filePath), dirname)
-  on.exit(unlink(appdir, recursive = TRUE))
-  
-  runApp(appdir, port=port, launch.browser=launch.browser)
 }

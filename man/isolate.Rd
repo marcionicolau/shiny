@@ -1,0 +1,84 @@
+\name{isolate}
+\alias{isolate}
+\title{Create a non-reactive scope for an expression}
+\usage{
+  isolate(expr)
+}
+\arguments{
+  \item{expr}{An expression that can access reactive values
+  or functions.}
+}
+\description{
+  Executes the given expression in a scope where reactive
+  values or functions can be read, but they cannot cause
+  the reactive scope of the caller to be re-evaluated when
+  they change.
+}
+\details{
+  Ordinarily, the simple act of reading a reactive value
+  causes a relationship to be established between the
+  caller and the reactive value, where a change to the
+  reactive value will cause the caller to re-execute. (The
+  same applies for the act of getting a reactive function's
+  value.) The \code{isolate} function lets you read a
+  reactive value or function without establishing this
+  relationship.
+
+  The expression given to \code{isolate()} is evaluated in
+  the calling environment. This means that if you assign a
+  variable inside the \code{isolate()}, its value will be
+  visible outside of the \code{isolate()}. If you want to
+  avoid this, you can use \code{\link{local}()} inside the
+  \code{isolate()}.
+
+  This function can also be useful for calling reactive
+  functions at the console, which can be useful for
+  debugging. To do so, simply wrap the functino calls with
+  \code{isolate()}.
+}
+\examples{
+\dontrun{
+observe(function() {
+  input$saveButton  # Do take a dependency on input$saveButton
+
+  # isolate a simple expression
+  data <- get(isolate(input$dataset))  # No dependency on input$dataset
+  writeToDatabase(data)
+})
+
+observe(function() {
+  input$saveButton  # Do take a dependency on input$saveButton
+
+  # isolate a whole block
+  data <- isolate({
+    a <- input$valueA   # No dependency on input$valueA or input$valueB
+    b <- input$valueB
+    c(a=a, b=b)
+  })
+  writeToDatabase(data)
+})
+
+observe(function() {
+  x <- 1
+  # x outside of isolate() is affected
+  isolate(x <- 2)
+  print(x) # 2
+
+  y <- 1
+  # Use local() to avoid affecting calling environment
+  isolate(local(y <- 2))
+  print(y) # 1
+})
+
+}
+
+# Can also use isolate to call reactive functions from the R console
+values <- reactiveValues(A=1)
+fun <- reactive(function() as.character(values$A))
+isolate(fun())
+# "1"
+
+# isolate also works if the reactive function accesses values from the
+# input object, like input$x
+}
+
