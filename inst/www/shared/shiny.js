@@ -5,6 +5,7 @@
 
   var exports = window.Shiny = window.Shiny || {};
 
+<<<<<<< HEAD
   var isQt = false;
   // For easy handling of Qt quirks using CSS
   if (/\bQt\//.test(window.navigator.userAgent)) {
@@ -24,6 +25,8 @@
     return val.replace(/([!"#$%&'()*+,.\/:;<=>?@\[\\\]^`{|}~])/g, '\\$1');
   };
 
+=======
+>>>>>>> cb51b86051c91ff1d34d914da31087ab4e414dbe
   function randomId() {
     return Math.floor(0x100000000 + (Math.random() * 0xF00000000)).toString(16);
   }
@@ -694,6 +697,54 @@
       return value;
     };
 
+<<<<<<< HEAD
+=======
+    this.dispatchMessage = function(msg) {
+      var msgObj = JSON.parse(msg);
+      if (msgObj.custom !== undefined && exports.oncustommessage) {
+        exports.oncustommessage(msgObj.custom);
+      }
+      if (msgObj.values) {
+        for (name in this.$bindings)
+          this.$bindings[name].showProgress(false);
+      }
+      for (key in msgObj.errors) {
+        this.receiveError(key, msgObj.errors[key]);
+      }
+      for (key in msgObj.values) {
+        this.receiveOutput(key, msgObj.values[key]);
+      }
+      if (msgObj.console) {
+        for (var i = 0; i < msgObj.console.length; i++) {
+          console.log(msgObj.console[i]);
+        }
+      }
+      if (msgObj.progress) {
+        for (var i = 0; i < msgObj.progress.length; i++) {
+          var key = msgObj.progress[i];
+          var binding = this.$bindings[key];
+          if (binding && binding.showProgress) {
+            binding.showProgress(true);
+          }
+        }
+      }
+      if (msgObj.response) {
+        var resp = msgObj.response;
+        var requestId = resp.tag;
+        var request = this.$activeRequests[requestId];
+        if (request) {
+          delete this.$activeRequests[requestId];
+          if ('value' in resp)
+            request.onSuccess(resp.value);
+          else
+            request.onError(resp.error);
+        }
+      };
+
+      this.$updateConditionals();
+    };
+
+>>>>>>> cb51b86051c91ff1d34d914da31087ab4e414dbe
     this.bindOutput = function(id, binding) {
       if (!id)
         throw "Can't bind an element with no ID";
@@ -1239,6 +1290,7 @@
     }
   });
   outputBindings.register(htmlOutputBinding, 'shiny.htmlOutput');
+<<<<<<< HEAD
 
   // Render HTML in a DOM element, inserting singletons into head as needed
   exports.renderHtml = function(html, el, dependencies) {
@@ -1389,6 +1441,8 @@
     }
   });
   outputBindings.register(downloadLinkOutputBinding, 'shiny.downloadLink');
+=======
+>>>>>>> cb51b86051c91ff1d34d914da31087ab4e414dbe
 
   var datatableOutputBinding = new OutputBinding();
   $.extend(datatableOutputBinding, {
